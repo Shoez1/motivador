@@ -202,6 +202,18 @@ const db = await initDb();
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 
+// Rota raiz para evitar "Cannot GET /"
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Motivador Diário API',
+    endpoints: {
+      health: '/health',
+      frase: '/api/frase?periodo=manha|tarde'
+    },
+    status: 'online'
+  });
+});
+
 app.get('/api/frase', requireApiKey, requireDeviceId, async (req, res) => {
   const periodo = normalizePeriodo(String(req.query.periodo ?? ''));
   if (!periodo) {
