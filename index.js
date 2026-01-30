@@ -59,7 +59,7 @@ async function generateDailyPhrase(periodo) {
          AND NOT EXISTS (
            SELECT 1 FROM daily_phrases dp 
            WHERE dp.phrase_id = p.id 
-             AND dp.date = DATE('now')
+             AND dp.date = DATE('now','-3 hours')
          )`,
       [periodo]
     );
@@ -74,8 +74,8 @@ async function generateDailyPhrase(periodo) {
     // Salva como frase do dia
     await db.run(
       `INSERT OR REPLACE INTO daily_phrases (date, periodo, phrase_id, texto, autor, tipo, created_at) 
-       VALUES (DATE('now'), ?, ?, ?, ?, ?, datetime('now'))`,
-      [periodo, selected.id, selected.texto, selected.autor, selected.tipo]
+       VALUES (DATE('now','-3 hours'), ?, ?, ?, ?, ?, ?)`,
+      [periodo, selected.id, selected.texto, selected.autor, selected.tipo, Date.now()]
     );
     
     console.log(`✅ Frase ${periodo} do dia gerada: "${selected.texto.substring(0, 50)}..."`);
@@ -296,9 +296,22 @@ app.get('/', (req, res) => {
     updated: '30/01/26',
     endpoints: {
       health: '/health',
-      frase: '/api/frase?periodo=manha|tarde'
+      frase: '/api/frase?periodo=manha|tarde',
+      teste: '/api/teste'
     },
     status: 'online'
+  });
+});
+
+app.get('/api/teste', requireApiKey, requireDeviceId, async (req, res) => {
+  const now = new Date();
+  const brasilia = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  res.json({
+    ok: true,
+    message: 'teste ok',
+    datetime_brt: brasilia.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+    date_brt: brasilia.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+    time_brt: brasilia.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })
   });
 });
 
@@ -310,45 +323,16 @@ app.get('/api/frase', requireApiKey, requireDeviceId, async (req, res) => {
 
   const deviceId = req.deviceId;
 
-  // Primeiro, tenta buscar a frase do dia já gerada pelo servidor
-  let dailyPhrase = await db.get(
+  // Busca SOMENTE a frase do dia já gerada pelo servidor (não gera por requisição)
+  const selected = await db.get(
     `SELECT dp.phrase_id as id, dp.texto, dp.autor, dp.tipo, dp.periodo
      FROM daily_phrases dp 
-     WHERE dp.date = DATE('now') AND dp.periodo = ?`,
+     WHERE dp.date = DATE('now','-3 hours') AND dp.periodo = ?`,
     [periodo]
   );
 
-  let selected = dailyPhrase;
-
-  // Se não tiver frase do dia, gera uma imediatamente (fallback)
   if (!selected) {
-    console.log(`⚡ Gerando frase ${periodo} imediatamente (não encontrada no dia)...`);
-    await generateDailyPhrase(periodo);
-    
-    dailyPhrase = await db.get(
-      `SELECT dp.phrase_id as id, dp.texto, dp.autor, dp.tipo, dp.periodo
-       FROM daily_phrases dp 
-       WHERE dp.date = DATE('now') AND dp.periodo = ?`,
-      [periodo]
-    );
-    
-    selected = dailyPhrase;
-  }
-
-  // Se ainda não tiver (erro), gera frase IA como fallback
-  if (!selected) {
-    const id = randomUUID();
-    const texto = generateAiPhrase(periodo);
-    const autor = 'IA';
-    const tipo = 'ia';
-    const createdAt = Date.now();
-
-    await db.run(
-      'INSERT INTO phrases (id, texto, autor, tipo, periodo, created_at) VALUES (?,?,?,?,?,?)',
-      [id, texto, autor, tipo, periodo, createdAt]
-    );
-
-    selected = { id, texto, autor, tipo, periodo };
+    return res.status(404).json({ error: 'daily_phrase_not_ready', periodo });
   }
 
   // Registra que este dispositivo recebeu esta frase
