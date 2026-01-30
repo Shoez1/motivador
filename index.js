@@ -12,6 +12,79 @@ const SQLITE_PATH = process.env.SQLITE_PATH ?? './data/motivador.sqlite';
 const app = express();
 app.use(express.json());
 
+// Agendador de frases diárias (horário de Brasília)
+function scheduleDailyPhrases() {
+  console.log('🕐 Agendando geração de frases diárias (horário de Brasília)...');
+  
+  // Gera frase da manhã às 5h
+  schedulePhraseGeneration('manha', 5, 0);
+  
+  // Gera frase da tarde às 18h
+  schedulePhraseGeneration('tarde', 18, 0);
+}
+
+function schedulePhraseGeneration(periodo, hour, minute) {
+  const now = new Date();
+  const brasiliaTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+  
+  // Próxima execução
+  const next = new Date(brasiliaTime);
+  next.setHours(hour, minute, 0, 0);
+  
+  // Se já passou hoje, agenda para amanhã
+  if (next <= brasiliaTime) {
+    next.setDate(next.getDate() + 1);
+  }
+  
+  const delayMs = next - brasiliaTime;
+  
+  console.log(`📅 Próxima frase ${periodo} agendada para: ${next.toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'})}`);
+  
+  setTimeout(() => {
+    generateDailyPhrase(periodo);
+    // Agenda recursivamente para o próximo dia
+    schedulePhraseGeneration(periodo, hour, minute);
+  }, delayMs);
+}
+
+async function generateDailyPhrase(periodo) {
+  try {
+    console.log(`🎯 Gerando frase diária ${periodo}...`);
+    
+    const db = await initDb();
+    const availablePhrases = await db.all(
+      `SELECT p.id, p.texto, p.autor, p.tipo 
+       FROM phrases p 
+       WHERE p.periodo = ? 
+         AND NOT EXISTS (
+           SELECT 1 FROM daily_phrases dp 
+           WHERE dp.phrase_id = p.id 
+             AND dp.date = DATE('now')
+         )`,
+      [periodo]
+    );
+    
+    if (availablePhrases.length === 0) {
+      console.log(`⚠️ Nenhuma frase disponível para ${periodo} hoje`);
+      return;
+    }
+    
+    const selected = availablePhrases[Math.floor(Math.random() * availablePhrases.length)];
+    
+    // Salva como frase do dia
+    await db.run(
+      `INSERT OR REPLACE INTO daily_phrases (date, periodo, phrase_id, texto, autor, tipo, created_at) 
+       VALUES (DATE('now'), ?, ?, ?, ?, ?, datetime('now'))`,
+      [periodo, selected.id, selected.texto, selected.autor, selected.tipo]
+    );
+    
+    console.log(`✅ Frase ${periodo} do dia gerada: "${selected.texto.substring(0, 50)}..."`);
+    
+  } catch (error) {
+    console.error(`❌ Erro ao gerar frase ${periodo}:`, error);
+  }
+}
+
 function requireApiKey(req, res, next) {
   const apiKey = req.header('x-api-key');
   if (!apiKey || apiKey !== API_KEY) {
@@ -89,6 +162,18 @@ async function initDb() {
       created_at INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS daily_phrases (
+      date TEXT NOT NULL,
+      periodo TEXT NOT NULL CHECK(periodo IN ('manha','tarde')),
+      phrase_id TEXT NOT NULL,
+      texto TEXT NOT NULL,
+      autor TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY(date, periodo),
+      FOREIGN KEY(phrase_id) REFERENCES phrases(id)
+    );
+
     CREATE TABLE IF NOT EXISTS sent (
       device_id TEXT NOT NULL,
       phrase_id TEXT NOT NULL,
@@ -100,6 +185,7 @@ async function initDb() {
 
     CREATE INDEX IF NOT EXISTS idx_sent_device_periodo ON sent(device_id, periodo);
     CREATE INDEX IF NOT EXISTS idx_phrases_periodo ON phrases(periodo);
+    CREATE INDEX IF NOT EXISTS idx_daily_phrases_date ON daily_phrases(date);
   `);
 
   const countRow = await db.get('SELECT COUNT(1) as c FROM phrases');
@@ -206,6 +292,8 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 app.get('/', (req, res) => {
   res.json({
     message: 'Motivador Diário API',
+    version: 'v1.2',
+    updated: '30/01/26',
     endpoints: {
       health: '/health',
       frase: '/api/frase?periodo=manha|tarde'
@@ -222,23 +310,32 @@ app.get('/api/frase', requireApiKey, requireDeviceId, async (req, res) => {
 
   const deviceId = req.deviceId;
 
-  const phrase = await db.get(
-    `
-    SELECT p.id, p.texto, p.autor, p.tipo
-    FROM phrases p
-    WHERE p.periodo = ?
-      AND NOT EXISTS (
-        SELECT 1 FROM sent s
-        WHERE s.device_id = ? AND s.phrase_id = p.id
-      )
-    ORDER BY p.created_at ASC
-    LIMIT 1
-    `,
-    [periodo, deviceId]
+  // Primeiro, tenta buscar a frase do dia já gerada pelo servidor
+  let dailyPhrase = await db.get(
+    `SELECT dp.phrase_id as id, dp.texto, dp.autor, dp.tipo, dp.periodo
+     FROM daily_phrases dp 
+     WHERE dp.date = DATE('now') AND dp.periodo = ?`,
+    [periodo]
   );
 
-  let selected = phrase;
+  let selected = dailyPhrase;
 
+  // Se não tiver frase do dia, gera uma imediatamente (fallback)
+  if (!selected) {
+    console.log(`⚡ Gerando frase ${periodo} imediatamente (não encontrada no dia)...`);
+    await generateDailyPhrase(periodo);
+    
+    dailyPhrase = await db.get(
+      `SELECT dp.phrase_id as id, dp.texto, dp.autor, dp.tipo, dp.periodo
+       FROM daily_phrases dp 
+       WHERE dp.date = DATE('now') AND dp.periodo = ?`,
+      [periodo]
+    );
+    
+    selected = dailyPhrase;
+  }
+
+  // Se ainda não tiver (erro), gera frase IA como fallback
   if (!selected) {
     const id = randomUUID();
     const texto = generateAiPhrase(periodo);
@@ -251,9 +348,10 @@ app.get('/api/frase', requireApiKey, requireDeviceId, async (req, res) => {
       [id, texto, autor, tipo, periodo, createdAt]
     );
 
-    selected = { id, texto, autor, tipo };
+    selected = { id, texto, autor, tipo, periodo };
   }
 
+  // Registra que este dispositivo recebeu esta frase
   await db.run(
     'INSERT OR IGNORE INTO sent (device_id, phrase_id, periodo, sent_at) VALUES (?,?,?,?)',
     [deviceId, selected.id, periodo, Date.now()]
@@ -265,4 +363,7 @@ app.get('/api/frase', requireApiKey, requireDeviceId, async (req, res) => {
 app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`motivador-server listening on http://localhost:${PORT}`);
+  
+  // Inicia o agendador de frases diárias
+  scheduleDailyPhrases();
 });
