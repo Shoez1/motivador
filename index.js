@@ -322,8 +322,8 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 app.get('/', (req, res) => {
   res.json({
     message: 'Motivador Diário API',
-    version: 'v1.2',
-    updated: '30/01/26',
+    version: 'v1.3',
+    updated: '01/02/26',
     endpoints: {
       health: '/health',
       frase: '/api/frase?periodo=manha|tarde',
