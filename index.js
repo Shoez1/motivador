@@ -47,6 +47,36 @@ function schedulePhraseGeneration(periodo, hour, minute) {
   }, delayMs);
 }
 
+async function ensureTodayPhrasesReady() {
+  const now = new Date();
+  const brasiliaTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const hour = brasiliaTime.getHours();
+
+  try {
+    const db = await initDb();
+
+    if (hour >= 5) {
+      const existsManha = await db.get(
+        `SELECT 1 as ok FROM daily_phrases WHERE date = DATE('now','-3 hours') AND periodo = 'manha' LIMIT 1`
+      );
+      if (!existsManha) {
+        await generateDailyPhrase('manha');
+      }
+    }
+
+    if (hour >= 18) {
+      const existsTarde = await db.get(
+        `SELECT 1 as ok FROM daily_phrases WHERE date = DATE('now','-3 hours') AND periodo = 'tarde' LIMIT 1`
+      );
+      if (!existsTarde) {
+        await generateDailyPhrase('tarde');
+      }
+    }
+  } catch (error) {
+    console.error('❌ Erro ao garantir frases do dia no startup:', error);
+  }
+}
+
 async function generateDailyPhrase(periodo) {
   try {
     console.log(`🎯 Gerando frase diária ${periodo}...`);
@@ -350,4 +380,7 @@ app.listen(PORT, () => {
   
   // Inicia o agendador de frases diárias
   scheduleDailyPhrases();
+
+  // Garante que as frases do dia existam caso o servidor tenha reiniciado após o horário
+  ensureTodayPhrasesReady();
 });
