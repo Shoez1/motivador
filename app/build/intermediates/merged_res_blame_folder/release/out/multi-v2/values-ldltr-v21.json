@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.motivador.diario.app-mergeReleaseResources-39:/values-ldltr-v21/values-ldltr-v21.xml",
+            "map": [
+                {
+                    "source": "X:\\Projetos\\APKs\\DevKit\\.gradle\\caches\\transforms-4\\6b5d1f83b7b83da8fed443b009a3eae6\\transformed\\appcompat-1.6.1\\res\\values-ldltr-v21\\values-ldltr-v21.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "112",
+                        "endOffsets": "163"
+                    }
+                }
+            ]
+        }
+    ]
+}

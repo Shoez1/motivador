@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.motivador.diario.app-mergeReleaseResources-39:/values-h550dp-port-v13/values-h550dp-port-v13.xml",
+            "map": [
+                {
+                    "source": "X:\\Projetos\\APKs\\DevKit\\.gradle\\caches\\transforms-4\\6306f763a7576f39f34b8a430b08601c\\transformed\\material-1.11.0\\res\\values-h550dp-port-v13\\values-h550dp-port-v13.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "64",
+                        "endOffsets": "115"
+                    }
+                }
+            ]
+        }
+    ]
+}

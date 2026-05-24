@@ -1,0 +1,14 @@
+[
+    {
+        "merged": "com.motivador.diario.app-mergeReleaseResources-40:/layout/activity_main.xml",
+        "source": "com.motivador.diario.app-main-42:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.motivador.diario.app-mergeReleaseResources-40:/layout/item_phrase.xml",
+        "source": "com.motivador.diario.app-main-42:/layout/item_phrase.xml"
+    },
+    {
+        "merged": "com.motivador.diario.app-mergeReleaseResources-40:/layout/activity_settings.xml",
+        "source": "com.motivador.diario.app-main-42:/layout/activity_settings.xml"
+    }
+]
