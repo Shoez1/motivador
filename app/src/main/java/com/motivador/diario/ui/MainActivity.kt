@@ -100,6 +100,8 @@ class MainActivity : AppCompatActivity() {
             var inserted = 0
             var pendingRelease = false
             var hadNetworkFailure = false
+            var hadServerFailure = false
+            var hadAuthenticationFailure = false
             var attemptedRequests = 0
 
             try {
@@ -117,10 +119,13 @@ class MainActivity : AppCompatActivity() {
                                 inserted += 1
                             }
                         } catch (e: HttpException) {
-                            if (e.code() == 404) {
-                                pendingRelease = true
-                            } else {
-                                throw e
+                            when {
+                                e.code() == 404 -> pendingRelease = true
+                                e.code() == 401 || e.code() == 403 -> {
+                                    hadAuthenticationFailure = true
+                                }
+                                e.code() >= 500 -> hadServerFailure = true
+                                else -> throw e
                             }
                         }
                     }
@@ -140,9 +145,13 @@ class MainActivity : AppCompatActivity() {
             val statusMessage = when {
                 inserted > 0 -> "Frases do dia sincronizadas agora."
                 today.isNotEmpty() && hadNetworkFailure -> "Sem conexao. Exibindo frases salvas."
+                today.isNotEmpty() && hadAuthenticationFailure -> "Acesso ao servidor recusado. Exibindo frases salvas."
+                today.isNotEmpty() && hadServerFailure -> "Servidor indisponivel. Exibindo frases salvas."
                 today.isNotEmpty() && pendingRelease -> "Conteudo atual salvo. A proxima frase ainda nao foi liberada."
                 today.isNotEmpty() && attemptedRequests == 0 -> "Frases do dia ja estao atualizadas."
                 today.isNotEmpty() -> "Sincronizacao concluida."
+                hadAuthenticationFailure -> "O servidor recusou a autenticacao do aplicativo."
+                hadServerFailure -> "O servidor esta online, mas nao conseguiu obter a frase."
                 hadNetworkFailure -> "Nao foi possivel conectar ao servidor."
                 pendingRelease -> "Aguardando a liberacao da frase do periodo."
                 else -> repo.nextExpectedWindowLabel()
@@ -150,7 +159,7 @@ class MainActivity : AppCompatActivity() {
 
             setSyncStatus(
                 statusMessage,
-                isError = today.isEmpty() && hadNetworkFailure
+                isError = today.isEmpty() && (hadNetworkFailure || hadServerFailure || hadAuthenticationFailure)
             )
         }
     }

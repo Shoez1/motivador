@@ -36,6 +36,8 @@ RESEARCH_USER_AGENT=Mozilla/5.0 (compatible; MotivadorDiario/1.7; +https://seu-d
 PENSADOR_BASE_URL=https://www.pensador.com
 PENSADOR_CACHE_TTL_MS=21600000
 PENSADOR_PAGE_LIMIT=12
+PENSADOR_MIN_QUOTES=45
+PENSADOR_MAX_EMPTY_ATTEMPTS=3
 ```
 
 ### Fonte Das Frases
@@ -45,6 +47,7 @@ PENSADOR_PAGE_LIMIT=12
 - `manha` prioriza paginas de motivacao e bom dia.
 - `tarde` prioriza reflexao, gratidao, paz e boa noite.
 - O cache evita bater no site a cada requisicao e o historico por aparelho impede repeticao.
+- A coleta externa e feita gradualmente e funciona tambem em runtimes Node.js sem `fetch` global.
 
 Paginas pesquisadas podem ser ajustadas:
 ```env
@@ -60,10 +63,16 @@ npm run dev
 ### Endpoints
 - `GET http://localhost:8080/api/frase?periodo=manha`
 - `GET http://localhost:8080/api/frase?periodo=tarde`
+- `GET http://localhost:8080/api/teste`
 - `GET https://motivador.sysdev2.serv00.net/api/frase?periodo=manha`
 - `GET https://motivador.sysdev2.serv00.net/api/frase?periodo=tarde`
+- `GET https://motivador.sysdev2.serv00.net/api/teste`
 
-Headers obrigatorios:
+`/api/teste` pode ser aberto diretamente no navegador, sem headers. Use-o para confirmar
+que a API esta online e conseguindo obter frases na fonte externa.
+
+`/api/frase` e exclusivo do aplicativo e exige os headers que mantem historico individual
+por aparelho:
 - `x-api-key: <API_KEY>`
 - `x-device-id: <id-unico-do-dispositivo>`
 

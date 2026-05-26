@@ -1,6 +1,8 @@
 require('dotenv/config');
 
 const fs = require('fs');
+const http = require('http');
+const https = require('https');
 const path = require('path');
 const express = require('express');
 const { createHash } = require('crypto');
@@ -16,6 +18,8 @@ const PENSADOR_BASE_URL = trimTrailingSlash(
 );
 const PENSADOR_CACHE_TTL_MS = Number(process.env.PENSADOR_CACHE_TTL_MS ?? 6 * 60 * 60 * 1000);
 const PENSADOR_PAGE_LIMIT = Number(process.env.PENSADOR_PAGE_LIMIT ?? 12);
+const PENSADOR_MIN_QUOTES = Number(process.env.PENSADOR_MIN_QUOTES ?? 45);
+const PENSADOR_MAX_EMPTY_ATTEMPTS = Number(process.env.PENSADOR_MAX_EMPTY_ATTEMPTS ?? 3);
 const USER_AGENT =
   process.env.RESEARCH_USER_AGENT ??
   'Mozilla/5.0 (compatible; MotivadorDiario/1.7; +https://motivador.sysdev2.serv00.net)';
@@ -85,6 +89,13 @@ let db;
 const quotePoolRefreshes = new Map();
 
 app.use(express.json());
+
+class QuoteSourceUnavailableError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'QuoteSourceUnavailableError';
+  }
+}
 
 function scheduleDailyPhrases() {
   console.log('Scheduling Pensador quote refresh (America/Sao_Paulo)...');
@@ -181,20 +192,18 @@ async function getDb() {
   return db;
 }
 
-function requireApiKey(req, res, next) {
-  const apiKey = req.header('x-api-key');
-  if (!apiKey || apiKey !== API_KEY) {
+function requireAppRequest(req, res, next) {
+  const apiKey = String(req.header('x-api-key') ?? '').trim();
+  const deviceId = String(req.header('x-device-id') ?? '').trim();
+
+  if (apiKey !== API_KEY) {
     return res.status(401).json({ error: 'unauthorized' });
   }
-  next();
-}
-
-function requireDeviceId(req, res, next) {
-  const deviceId = req.header('x-device-id');
-  if (!deviceId || String(deviceId).trim().length < 6) {
+  if (deviceId.length < 6 || deviceId.length > 128) {
     return res.status(400).json({ error: 'missing_device_id' });
   }
-  req.deviceId = String(deviceId);
+
+  req.deviceId = deviceId;
   next();
 }
 
@@ -384,21 +393,36 @@ function parseCachedQuotes(payload) {
 
 async function buildPensadorQuotePool(periodo) {
   const urls = buildPensadorUrls(periodo);
-  const responses = await Promise.allSettled(urls.map((url) => fetchPensadorPage(url)));
   const quotes = [];
+  let failedOrEmptyAttempts = 0;
 
-  responses.forEach((response, index) => {
-    const url = urls[index];
-    if (response.status !== 'fulfilled') {
-      console.warn(`Pensador fetch failed for ${url}:`, response.reason?.message ?? response.reason);
-      return;
+  for (const url of urls) {
+    try {
+      const pageQuotes = extractPensadorQuotes(await fetchPensadorPage(url), url);
+      if (pageQuotes.length === 0) {
+        failedOrEmptyAttempts += 1;
+        console.warn(`Pensador returned no usable quote cards for ${url}`);
+      } else {
+        quotes.push(...pageQuotes);
+      }
+    } catch (error) {
+      failedOrEmptyAttempts += 1;
+      console.warn(`Pensador fetch failed for ${url}:`, error.message);
     }
-    quotes.push(...extractPensadorQuotes(response.value, url));
-  });
+
+    const unique = uniqueQuotes(quotes);
+    if (unique.length >= PENSADOR_MIN_QUOTES) {
+      return unique;
+    }
+
+    if (unique.length === 0 && failedOrEmptyAttempts >= PENSADOR_MAX_EMPTY_ATTEMPTS) {
+      break;
+    }
+  }
 
   const unique = uniqueQuotes(quotes);
   if (unique.length === 0) {
-    throw new Error('Pensador returned no valid quote cards');
+    throw new QuoteSourceUnavailableError('Pensador returned no valid quote cards');
   }
 
   return unique;
@@ -444,28 +468,51 @@ function toPensadorUrl(sourcePath, page) {
   return page === 1 ? `${baseUrl}/` : `${baseUrl}/${page}/`;
 }
 
-async function fetchPensadorPage(url) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), RESEARCH_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
+function fetchPensadorPage(url, redirectCount = 0) {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const transport = parsedUrl.protocol === 'https:' ? https : http;
+    const request = transport.get(parsedUrl, {
       headers: {
         accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'accept-language': 'pt-BR,pt;q=0.9,en;q=0.6',
         'user-agent': USER_AGENT
       }
+    }, (response) => {
+      const statusCode = Number(response.statusCode ?? 0);
+      const location = response.headers.location;
+
+      if (statusCode >= 300 && statusCode < 400 && location) {
+        response.resume();
+        if (redirectCount >= 3) {
+          reject(new Error('Too many redirects'));
+          return;
+        }
+
+        const redirectUrl = new URL(location, parsedUrl).toString();
+        fetchPensadorPage(redirectUrl, redirectCount + 1).then(resolve, reject);
+        return;
+      }
+
+      if (statusCode < 200 || statusCode >= 300) {
+        response.resume();
+        reject(new Error(`HTTP ${statusCode}`));
+        return;
+      }
+
+      response.setEncoding('utf8');
+      let html = '';
+      response.on('data', (chunk) => {
+        html += chunk;
+      });
+      response.on('end', () => resolve(html));
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    return await response.text();
-  } finally {
-    clearTimeout(timeout);
-  }
+    request.setTimeout(RESEARCH_TIMEOUT_MS, () => {
+      request.destroy(new Error(`Request timed out after ${RESEARCH_TIMEOUT_MS} ms`));
+    });
+    request.on('error', reject);
+  });
 }
 
 function extractPensadorQuotes(html, sourceUrl) {
@@ -701,8 +748,8 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     message: 'Motivador Diario API',
-    version: 'v1.7',
-    updated: '24/05/26',
+    version: 'v1.8',
+    updated: '25/05/26',
     source: 'pensador.com',
     mode: 'frases reais externas, sem IA paga e sem lista fixa local',
     endpoints: {
@@ -710,11 +757,12 @@ app.get('/', (req, res) => {
       frase: '/api/frase?periodo=manha|tarde',
       teste: '/api/teste'
     },
+    browser_access: 'GET /api/teste pode ser aberto sem headers; /api/frase e exclusivo do aplicativo',
     status: 'online'
   });
 });
 
-app.get('/api/teste', requireApiKey, requireDeviceId, async (req, res) => {
+app.get('/api/teste', async (req, res) => {
   const dateInfo = currentBrasiliaDateInfo();
   const periodo =
     normalizePeriodo(String(req.query.periodo ?? '')) ?? (dateInfo.hour >= 18 ? 'tarde' : 'manha');
@@ -722,14 +770,18 @@ app.get('/api/teste', requireApiKey, requireDeviceId, async (req, res) => {
   try {
     const localDb = await getDb();
     const quotes = await getQuotePool(localDb, periodo, dateInfo);
+    const checkedAt = new Date();
 
     res.json({
       ok: true,
       message: 'teste ok',
-      datetime_brt: new Date().toLocaleString('pt-BR', {
+      datetime_brt: checkedAt.toLocaleString('pt-BR', {
         timeZone: 'America/Sao_Paulo'
       }),
       date_brt: dateInfo.brDate,
+      time_brt: checkedAt.toLocaleTimeString('pt-BR', {
+        timeZone: 'America/Sao_Paulo'
+      }),
       periodo,
       source: 'pensador.com',
       quote_count: quotes.length,
@@ -737,11 +789,12 @@ app.get('/api/teste', requireApiKey, requireDeviceId, async (req, res) => {
     });
   } catch (error) {
     console.error('Pensador test failed:', error);
-    res.status(500).json({ ok: false, error: 'pensador_fetch_failed' });
+    const status = error instanceof QuoteSourceUnavailableError ? 503 : 500;
+    res.status(status).json({ ok: false, error: 'pensador_fetch_failed' });
   }
 });
 
-app.get('/api/frase', requireApiKey, requireDeviceId, async (req, res) => {
+app.get('/api/frase', requireAppRequest, async (req, res) => {
   const periodo = normalizePeriodo(String(req.query.periodo ?? ''));
   if (!periodo) {
     return res.status(400).json({ error: 'invalid_periodo' });
@@ -757,7 +810,8 @@ app.get('/api/frase', requireApiKey, requireDeviceId, async (req, res) => {
     res.json(selected);
   } catch (error) {
     console.error('Error serving Pensador quote:', error);
-    res.status(500).json({ error: 'phrase_generation_failed' });
+    const status = error instanceof QuoteSourceUnavailableError ? 503 : 500;
+    res.status(status).json({ error: 'phrase_generation_failed' });
   }
 });
 
