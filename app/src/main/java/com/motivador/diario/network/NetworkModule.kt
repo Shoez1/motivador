@@ -1,6 +1,7 @@
 package com.motivador.diario.network
 
 import android.content.Context
+import com.motivador.diario.BuildConfig
 import com.motivador.diario.data.DeviceIdProvider
 import com.squareup.moshi.Moshi
 import okhttp3.OkHttpClient
@@ -26,7 +27,12 @@ object NetworkModule {
 
     private fun buildApi(context: Context): MotivadorApi {
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BASIC
+            // Loga apenas em builds de debug para não expor dados sensíveis em produção.
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BASIC
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
 
         val client = OkHttpClient.Builder()

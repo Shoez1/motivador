@@ -46,8 +46,9 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Garantir local.properties com o SDK do DevKit
+REM Garantir local.properties com o SDK do DevKit e API Key
 > "%~dp0local.properties" echo sdk.dir=%SDK_DIR_FORWARD%
+>> "%~dp0local.properties" echo MOTIVADOR_API_KEY=motv_7V1c9YpQmD3nK8sL2tX4aB6eR0uI5oZJ
 
 REM Verificar se gradlew.bat existe
 if not exist "gradlew.bat" (

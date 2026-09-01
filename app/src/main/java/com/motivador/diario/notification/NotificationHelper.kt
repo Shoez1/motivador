@@ -22,9 +22,12 @@ object NotificationHelper {
 
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Frases diarias",
+            "Frases diárias",
             NotificationManager.IMPORTANCE_DEFAULT
-        )
+        ).apply {
+            description = "Frases motivacionais enviadas duas vezes ao dia: às 05:00 e às 18:00."
+        }
+
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(channel)
     }

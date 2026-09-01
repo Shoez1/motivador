@@ -37,8 +37,10 @@ object DailyScheduler {
             constraints = constraints
         )
 
-        wm.enqueueUniquePeriodicWork(UNIQUE_MANHA, ExistingPeriodicWorkPolicy.KEEP, manha)
-        wm.enqueueUniquePeriodicWork(UNIQUE_TARDE, ExistingPeriodicWorkPolicy.KEEP, tarde)
+        // UPDATE garante que mudanças no initialDelay (ex: após atualização do app)
+        // sejam aplicadas. KEEP ignoraria o novo worker se um já estiver enfileirado.
+        wm.enqueueUniquePeriodicWork(UNIQUE_MANHA, ExistingPeriodicWorkPolicy.UPDATE, manha)
+        wm.enqueueUniquePeriodicWork(UNIQUE_TARDE, ExistingPeriodicWorkPolicy.UPDATE, tarde)
     }
 
     private fun buildDailyWorker(

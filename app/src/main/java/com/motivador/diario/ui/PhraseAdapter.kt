@@ -59,13 +59,9 @@ class PhraseAdapter :
             }
 
             val whenText = df.format(Date(item.receivedAt))
-            val periodoLabel = when (item.periodo) {
-                FetchPhraseWorker.PERIODO_MANHA -> "Motivacao da manha (05:00)"
-                FetchPhraseWorker.PERIODO_TARDE -> "Motivacao da tarde (18:00)"
-                else -> item.periodo
-            }
+            val periodoLabel = FetchPhraseWorker.periodoLabel(item.periodo)
 
-            binding.phraseMeta.text = "$periodoLabel - ${item.tipo} - $whenText"
+            binding.phraseMeta.text = "$periodoLabel • ${item.tipo} • $whenText"
         }
 
         private fun openAuthorSearch(context: Context, author: String) {

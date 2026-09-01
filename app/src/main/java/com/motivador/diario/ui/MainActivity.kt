@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity() {
     private val requestNotificationsPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { _ ->
-        // No-op: the next sync will use the latest permission state.
+        // No-op: next sync will use latest permission state.
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -143,17 +143,17 @@ class MainActivity : AppCompatActivity() {
             renderTodayPhrases(today)
 
             val statusMessage = when {
-                inserted > 0 -> "Frases do dia sincronizadas agora."
-                today.isNotEmpty() && hadNetworkFailure -> "Sem conexao. Exibindo frases salvas."
-                today.isNotEmpty() && hadAuthenticationFailure -> "Acesso ao servidor recusado. Exibindo frases salvas."
-                today.isNotEmpty() && hadServerFailure -> "Servidor indisponivel. Exibindo frases salvas."
-                today.isNotEmpty() && pendingRelease -> "Conteudo atual salvo. A proxima frase ainda nao foi liberada."
-                today.isNotEmpty() && attemptedRequests == 0 -> "Frases do dia ja estao atualizadas."
-                today.isNotEmpty() -> "Sincronizacao concluida."
-                hadAuthenticationFailure -> "O servidor recusou a autenticacao do aplicativo."
-                hadServerFailure -> "O servidor esta online, mas nao conseguiu obter a frase."
-                hadNetworkFailure -> "Nao foi possivel conectar ao servidor."
-                pendingRelease -> "Aguardando a liberacao da frase do periodo."
+                inserted > 0 -> getString(R.string.status_synced)
+                today.isNotEmpty() && hadNetworkFailure -> getString(R.string.status_offline_cached)
+                today.isNotEmpty() && hadAuthenticationFailure -> getString(R.string.status_auth_failed_cached)
+                today.isNotEmpty() && hadServerFailure -> getString(R.string.status_server_error_cached)
+                today.isNotEmpty() && pendingRelease -> getString(R.string.status_pending_release_cached)
+                today.isNotEmpty() && attemptedRequests == 0 -> getString(R.string.status_already_updated)
+                today.isNotEmpty() -> getString(R.string.status_sync_done)
+                hadAuthenticationFailure -> getString(R.string.status_auth_failed)
+                hadServerFailure -> getString(R.string.status_server_error)
+                hadNetworkFailure -> getString(R.string.status_offline)
+                pendingRelease -> getString(R.string.status_pending_release)
                 else -> repo.nextExpectedWindowLabel()
             }
 
@@ -175,9 +175,9 @@ class MainActivity : AppCompatActivity() {
         binding.btnRefresh.isEnabled = !loading
         binding.btnRefresh.alpha = if (loading) 0.6f else 1.0f
         binding.btnRefresh.text = if (loading) {
-            "Sincronizando..."
+            getString(R.string.btn_syncing)
         } else {
-            "Sincronizar agora"
+            getString(R.string.btn_sync)
         }
     }
 
@@ -208,7 +208,7 @@ class MainActivity : AppCompatActivity() {
                 renderMainPhrase(
                     latestPhrase.texto,
                     latestPhrase.autor,
-                    formatPeriodoLabel(latestPhrase.periodo)
+                    FetchPhraseWorker.periodoLabel(latestPhrase.periodo)
                 )
 
                 val previousPhrases = today.filter { it.localId != latestPhrase.localId }
@@ -223,17 +223,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        renderMainPhrase("Aguardando frase de hoje...", "", "")
+        renderMainPhrase(getString(R.string.phrase_waiting), "", "")
         binding.historyTitle.visibility = View.GONE
         adapter.submitList(emptyList())
-    }
-
-    private fun formatPeriodoLabel(periodo: String): String {
-        return when (periodo) {
-            FetchPhraseWorker.PERIODO_MANHA -> "Motivacao da manha (05:00)"
-            FetchPhraseWorker.PERIODO_TARDE -> "Motivacao da tarde (18:00)"
-            else -> ""
-        }
     }
 
     private fun renderMainPhrase(text: String, author: String, meta: String) {
@@ -270,7 +262,7 @@ class MainActivity : AppCompatActivity() {
             intent.addCategory(Intent.CATEGORY_BROWSABLE)
             startActivity(intent)
         } catch (_: Exception) {
-            // Keep the main screen usable even if no browser is available.
+            // Keep main screen usable even if browser unavailable.
         }
     }
 }

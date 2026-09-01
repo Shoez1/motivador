@@ -21,11 +21,7 @@ class FetchPhraseWorker(
             val phrase = result.phrase
 
             if (phrase.notifiedAt == null) {
-                val title = when (periodo) {
-                    PERIODO_MANHA -> "Motivacao da manha (05:00)"
-                    PERIODO_TARDE -> "Motivacao da tarde (18:00)"
-                    else -> "Motivador Diario"
-                }
+                val title = periodoNotificationTitle(periodo)
 
                 val notified = NotificationHelper.showPhraseNotification(
                     applicationContext,
@@ -67,5 +63,15 @@ class FetchPhraseWorker(
         const val KEY_PERIODO = "periodo"
         const val PERIODO_MANHA = "manha"
         const val PERIODO_TARDE = "tarde"
+
+        /** Label de notificação/exibição para cada período. Fonte única de verdade. */
+        fun periodoNotificationTitle(periodo: String): String = when (periodo) {
+            PERIODO_MANHA -> "Motivação da manhã (05:00)"
+            PERIODO_TARDE -> "Motivação da tarde (18:00)"
+            else -> "Motivador Diário"
+        }
+
+        /** Label curto para exibição no histórico. */
+        fun periodoLabel(periodo: String): String = periodoNotificationTitle(periodo)
     }
 }

@@ -1,3 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Motivador Diário</string>
+
+    <!-- MainActivity -->
+    <string name="title_today_phrase">Frase de hoje</string>
+    <string name="cd_settings">Configurações</string>
+    <string name="btn_sync">Sincronizar agora</string>
+    <string name="btn_syncing">Sincronizando…</string>
+    <string name="history_title">Mais cedo hoje</string>
+    <string name="phrase_waiting">Aguardando frase de hoje…</string>
+
+    <!-- Status messages -->
+    <string name="status_synced">Frases do dia sincronizadas agora.</string>
+    <string name="status_offline_cached">Sem conexão. Exibindo frases salvas.</string>
+    <string name="status_auth_failed_cached">Acesso ao servidor recusado. Exibindo frases salvas.</string>
+    <string name="status_server_error_cached">Servidor indisponível. Exibindo frases salvas.</string>
+    <string name="status_pending_release_cached">Conteúdo atual salvo. A próxima frase ainda não foi liberada.</string>
+    <string name="status_already_updated">Frases do dia já estão atualizadas.</string>
+    <string name="status_sync_done">Sincronização concluída.</string>
+    <string name="status_auth_failed">O servidor recusou a autenticação do aplicativo.</string>
+    <string name="status_server_error">O servidor está online, mas não conseguiu obter a frase.</string>
+    <string name="status_offline">Não foi possível conectar ao servidor.</string>
+    <string name="status_pending_release">Aguardando a liberação da frase do período.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Configurações</string>
+    <string name="settings_section_preferences">Preferências</string>
+    <string name="settings_switch_refresh">Mostrar botão "Sincronizar agora"</string>
+    <string name="settings_switch_refresh_desc">Ative para exibir um botão de sincronização manual. Desative para usar apenas o modo automático.</string>
+    <string name="settings_section_about">Sobre</string>
+    <string name="settings_about_text">Motivador Diário foi criado com um propósito simples: trazer um raio de esperança e motivação para o seu dia, todos os dias.\n\nAcreditamos que pequenas palavras podem transformar grandes desafios em oportunidades de crescimento. Cada frase é selecionada para iluminar sua jornada matinal e trazer reflexão ao seu dia.\n\nQue estas mensagens possam ser o combustível para seus sonhos e a força para suas batalhas.</string>
+    <string name="settings_signature">MTS Productions © 2026</string>
 </resources>

@@ -36,18 +36,19 @@
                 android:id="@+id/sectionTitle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="Preferencias"
+                android:text="@string/settings_section_preferences"
                 android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
-            <Switch
+            <!-- SwitchMaterial substitui o Switch legado para compatibilidade com Material3 -->
+            <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/switchShowRefreshButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:text="Mostrar botao &quot;Sincronizar agora&quot;"
+                android:text="@string/settings_switch_refresh"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/sectionTitle" />
@@ -57,7 +58,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="Ative para exibir um botao de sincronizacao manual. Desative para usar apenas o modo automatico."
+                android:text="@string/settings_switch_refresh_desc"
                 android:textAppearance="@style/TextAppearance.Material3.BodySmall"
                 android:textColor="?android:attr/textColorSecondary"
                 app:layout_constraintEnd_toEndOf="parent"
@@ -79,7 +80,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:text="Sobre"
+                android:text="@string/settings_section_about"
                 android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -91,7 +92,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:lineSpacingExtra="2dp"
-                android:text="Motivador Diario foi criado com um proposito simples: trazer um raio de esperanca e motivacao para o seu dia, todos os dias.&#10;&#10;Acreditamos que pequenas palavras podem transformar grandes desafios em oportunidades de crescimento. Cada frase e selecionada para iluminar sua jornada matinal e trazer reflexao ao seu dia.&#10;&#10;Que estas mensagens possam ser o combustivel para seus sonhos e a forca para suas batalhas."
+                android:text="@string/settings_about_text"
                 android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -103,7 +104,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:gravity="center"
-                android:text="MTS Productions (c) 2026"
+                android:text="@string/settings_signature"
                 android:textAppearance="@style/TextAppearance.Material3.BodySmall"
                 android:textColor="?android:attr/textColorSecondary"
                 android:textStyle="bold"

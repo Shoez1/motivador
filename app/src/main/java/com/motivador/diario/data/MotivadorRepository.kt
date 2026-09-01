@@ -16,8 +16,6 @@ class MotivadorRepository(private val context: Context) {
     private val brasiliaTimeZone: TimeZone = TimeZone.getTimeZone("America/Sao_Paulo")
 
     suspend fun fetchAndCache(periodo: String): FetchAndCacheResult {
-        purgeOldPhrases()
-
         val localDate = todayKey()
         val dto = api.getPhrase(periodo)
         val existing = dao.findByRemotePeriodAndDate(dto.id, periodo, localDate)
@@ -59,15 +57,14 @@ class MotivadorRepository(private val context: Context) {
     suspend fun getRecent(limit: Int = 20): List<PhraseEntity> = dao.recent(limit)
 
     suspend fun hasTodayPhrase(periodo: String): Boolean {
-        purgeOldPhrases()
         return dao.hasPhraseForDate(todayKey(), periodo)
     }
 
     suspend fun getTodayPhrases(): List<PhraseEntity> {
-        purgeOldPhrases()
         return dao.getPhrasesForDate(todayKey())
     }
 
+    /** Remove frases de dias anteriores. Chamar apenas no startup do app. */
     suspend fun purgeOldPhrases() {
         dao.deleteBeforeLocalDate(todayKey())
     }
@@ -83,9 +80,9 @@ class MotivadorRepository(private val context: Context) {
 
     fun nextExpectedWindowLabel(): String {
         return when (currentBrasiliaHour()) {
-            in 0..4 -> "Proxima frase prevista as 05:00 (horario de Brasilia)."
-            in 5..17 -> "Proxima frase prevista as 18:00 (horario de Brasilia)."
-            else -> "Novas frases a partir das 05:00 (horario de Brasilia) de amanha."
+            in 0..4 -> "Próxima frase prevista às 05:00 (horário de Brasília)."
+            in 5..17 -> "Próxima frase prevista às 18:00 (horário de Brasília)."
+            else -> "Novas frases a partir das 05:00 (horário de Brasília) de amanhã."
         }
     }
 

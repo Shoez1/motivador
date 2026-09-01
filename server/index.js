@@ -286,12 +286,8 @@ async function assignDeviceDailyPhrase(localDb, deviceId, periodo) {
 
 async function markPhraseSent(localDb, deviceId, phraseId, periodo, sentAt) {
   await localDb.run(
-    'INSERT OR IGNORE INTO sent (device_id, phrase_id, periodo, sent_at) VALUES (?,?,?,?)',
+    'INSERT OR REPLACE INTO sent (device_id, phrase_id, periodo, sent_at) VALUES (?,?,?,?)',
     [deviceId, phraseId, periodo, sentAt]
-  );
-  await localDb.run(
-    'UPDATE sent SET periodo = ?, sent_at = ? WHERE device_id = ? AND phrase_id = ?',
-    [periodo, sentAt, deviceId, phraseId]
   );
 }
 
@@ -815,8 +811,24 @@ app.get('/api/frase', requireAppRequest, async (req, res) => {
   }
 });
 
+async function purgeOldServerData(localDb) {
+  try {
+    const ninetyDaysAgoMs = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    await localDb.run('DELETE FROM sent WHERE sent_at < ?', [ninetyDaysAgoMs]);
+    await localDb.run('DELETE FROM device_text_history WHERE first_sent_at < ?', [ninetyDaysAgoMs]);
+    await localDb.run('DELETE FROM device_daily_phrases WHERE created_at < ?', [ninetyDaysAgoMs]);
+    await localDb.run('DELETE FROM daily_phrases WHERE created_at < ?', [ninetyDaysAgoMs]);
+    await localDb.run('DELETE FROM phrases WHERE created_at < ?', [ninetyDaysAgoMs]);
+    await localDb.run('DELETE FROM quote_cache WHERE created_at < ?', [ninetyDaysAgoMs]);
+    console.log('Old server data (> 90 days) purged successfully.');
+  } catch (error) {
+    console.error('Error purging old server data:', error);
+  }
+}
+
 async function start() {
   db = await initDb();
+  await purgeOldServerData(db);
 
   app.listen(PORT, () => {
     console.log(`motivador-server listening on http://localhost:${PORT}`);

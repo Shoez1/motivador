@@ -1,7 +1,14 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
+}
+
+val localProperties = Properties().also { props ->
+    val file = rootProject.file("local.properties")
+    if (file.exists()) props.load(file.inputStream())
 }
 
 android {
@@ -16,6 +23,11 @@ android {
         versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val apiKey = localProperties.getProperty("MOTIVADOR_API_KEY")
+            ?: System.getenv("MOTIVADOR_API_KEY")
+            ?: "motv_7V1c9YpQmD3nK8sL2tX4aB6eR0uI5oZJ"
+        buildConfigField("String", "MOTIVADOR_API_KEY", "\"$apiKey\"")
     }
 
     buildTypes {
@@ -39,6 +51,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 }
 
